@@ -13,10 +13,10 @@ if [ "$#" == "0" ]; then
 
 echo "more arguments:"
 echo
-echo " -h, --help             show this help message and exit"
-echo " -r, --robot            robot automation "
-echo " -q, --requirements    more information about process"
-echo " -s, --single-order     talenom account creation TOOL"
+echo " -h, --help            show this help message and exit"
+echo " -r, --robot           robot automation               "
+echo " -q, --requirements    more information and setup     "
+echo " -s, --single-order    RR single order test           "
 echo
                 echo
                 exit 1
@@ -97,7 +97,7 @@ echo
 	tOvt1=`cat 1.tmp | grep "TASK subject" | cut -d "/" -f3 | cut -d ' ' -f2`
 	tOvt=`cat 1.tmp | grep "To be routed Receiving ID" | awk '{print $7}'`
 	tCustomerName=`cat 1.tmp | grep "Company name" | awk '{for(i=6;i<=NF;i++){printf "%s ", $i}; printf "\n"}'`
-	Company_name_tobe_routed=`cat 1.tmp | grep "CN to be routed" | awk '{for(i=6;i<=NF;i++){printf "%s ", $i}; printf "\n"}'`
+	Company_name_tobe_routed=`cat 1.tmp | grep "CN to be routed" | awk '{for(i=6;i<=NF;i++){printf "%s ", $i}; printf "\n"}' | awk '{gsub(/^ +| +$/,"")} {print "" $0 ""}'`
 	Type=`cat 1.tmp | grep "Type" | awk '{print $4}'`
 	CompanyEA=`cat 1.tmp | grep "company electronic address" | awk '{for(i=5;i<=NF;i++){printf "%s ", $i}; printf "\n"}' `
 	Rec_operator=`cat 1.tmp | grep "Receiving operator" | awk '{for(i=4;i<=NF;i++){printf "%s ", $i}; printf "\n"}' `
@@ -124,14 +124,10 @@ else
                        #echo $tDate
 fi
 
-
 ovt2name=`ovt2name $tOvt 2>&1`
 ytjname=`awk '{gsub(/^ +| +$/,"")} {print "" $0 ""}' <<< $ovt2name`
 
-
-
 }
-
 
 checkbox()
 
@@ -159,8 +155,6 @@ echo "script user:                           $tUser"
 echo =========================================================
 echo
 
-
-
 #checking mandatory variables
 echo -e "checking varaibles ..."
 if [ -z "$tOvt" ] || [ -z "${tCustomerName}" ] || [ -z "$tTaskID" ] || [ -z "$ParentID" ] || [ -z "$Company_name_tobe_routed" ] || [ -z "$Type" ] || [ -z "$CompanyEA" ] || [ -z "$Rec_operator" ]
@@ -168,8 +162,17 @@ if [ -z "$tOvt" ] || [ -z "${tCustomerName}" ] || [ -z "$tTaskID" ] || [ -z "$Pa
 then
     echo " missing variable. exiting"
         #/home/elpp/rparobot/RR/adapters/routing_request_adapter.py $tTaskID --worknotes $worknotes
-
-	        exit 1
+	if [ $robot -eq 1 ]; then
+		echo
+		echo robot way
+		echo
+		continue 1
+	else
+		echo
+		echo single task way
+		echo
+		exit 1
+	fi
 		    else
 		        echo
 			        echo "variables on the place: OK"
@@ -177,20 +180,26 @@ then
 
 				echo
 
-
-
 if [ -z "${moreinfo-unset}" ]
 then
     echo -e "no additional information from customer - ticket can be processed by robot"
         echo $moreinfo
 	else
 	                 echo -e " moved to manual handling - additional information from customer"
-			 worknotes=`echo "following information is attached, manual handling is needed \n\r $moreinfo"`
-			                        #/home/elpp/rparobot/RR/adapters/routing_request_adapter.py $tTaskID --worknotes $worknotes
-						                    exit 1
-							                           #echo $tDate
+			 #worknotes=`echo "following information is attached, manual handling is needed \n\r $moreinfo"`
+			 csinfo="$(cat <<-EOF
+				manual handling is needed \n\r please check following information \n\r $moreinfo
+				EOF
+				)"
+			                        /home/elpp/rparobot/RR/adapters/routing_request_adapter.py $tTaskID --worknotes "${csinfo}"
+						/home/elpp/slomaba1/HAL/change_priority3.py $tTaskID
+						if [ $robot -eq 1 ]; then
+                					continue 1
+        					else
+                					exit 1
+        					fi
+							#echo $tDate
    fi
-
 
 }
 
@@ -210,24 +219,31 @@ ovt_check()
                 ovtlenght=`awk -F '[0-9]' '{print NF-1}' <<< "$tOvt"`
 		echo ovtlenght : $ovtlenght
                 echo $ovtlenght
-
+		
                 if [ $ovtlenght -ne 12 ] && [ $ovtcor -eq 0 ]
                 then
                         echo -e "ovt is extended or not correct, moved to manual handling"
-                ovtwarn=`echo -e "Please check Ovt, moved to manual handling"`            
+                ovtwarn=`echo -e "CHECK: Please check Ovt, moved to manual handling"`            
                 #/home/elpp/rparobot/RR/adapters/routing_request_adapter.py $tTaskID --worknotes $ovtwarn
-               
-                        exit 1
+               		a=0;
+						if [ $robot -eq 1 ]; then
+                                                        continue 1
+                                                else
+                                                        exit 1
+                                                fi
+
                 else
                         echo "ovt correct : OK"
+			ovtwarn=`echo -e "OK: OVT fulfills our requirements"`
+			a=1;
                 fi
 
 }
 
 #ytj check <==================================================================>
-echo ytj check
 ytj_check()
 {
+	echo ytj check
 	#ovt2name=`ovt2name $tOvt 2>&1`
 	#ytjname=`awk '{gsub(/^ +| +$/,"")} {print "" $0 ""}' <<< $ovt2name`
 	echo ytjname : $ytjname
@@ -240,18 +256,22 @@ ytj_check()
 
 if [ $maxcount -eq 1 ]
 then
+	echo ytj search count
 	countwarn=`echo "Max count of search hits 1100 of 1100 has been reached for this month, please contact PM CS FI Service Desk STD Changes"`
-	#/home/elpp/slomaba1/HAL/worknotes_prod.py $tTaskID "${countwarn}"
+	/home/elpp/slomaba1/HAL/worknotes_prod.py $tTaskID "${countwarn}"
 
 	echo "checking time: $CTIME , STATUS INFO: $countwarn "  >> /home/elpp/rparobot/RR/logs/RRlogs
-    #    /home/elpp/slomaba1/HAL/change_priority3.py $tTaskID
+        /home/elpp/slomaba1/HAL/change_priority3.py $tTaskID
 	mail -s "1100 max search has been reached" -v -r bartosz.sloma@posti.com krzysztof.olszewski@posti.com,bartosz.sloma@posti.com < /home/elpp/rparobot/CS/ytjcounter.txt
-        echo exiting
-        exit 1
+	if [ $robot -eq 1 ]; then
+           continue 1
+        else
+           exit 1
+        fi
+	
 else
 	echo "ytj counter OK"
 fi
-
 
 
 if [ $ytjovt -eq 1 ]
@@ -259,14 +279,21 @@ then
         ovtwarning=`echo "OVT warning: something wrong with ovt, OVT is extended or YTJservice not responding. moved to manual handling"`
 
         echo -e "ovt not exists in ytj, wrong ovt in department or ytj service not responding"
-	#/home/elpp/slomaba1/HAL/worknotes_prod.py $tTaskID "${ovtwarning}"
-
+	/home/elpp/slomaba1/HAL/worknotes_prod.py $tTaskID "${ovtwarning}"
+	
         echo "checking time: $CTIME , STATUS INFO: $ovtwarning "  >> /home/elpp/rparobot/RR/logs/RRlogs
-        #/home/elpp/slomaba1/HAL/change_priority3.py $tTaskID
-        echo exiting
-        exit 1
+        /home/elpp/slomaba1/HAL/change_priority3.py $tTaskID
+        echo exiting task
+
+	if [ $robot -eq 1 ]; then
+           continue 1
+        else
+           exit 1
+        fi
+		
+
 else
-        echo -e "entry in ytj exists, continue"
+        echo -e "entry in ytj exists, everything ok at this stage"
 
 fi
 
@@ -274,23 +301,22 @@ fi
 namecompare()
 {
 
-if [ "$Company_name_tobe_routed" == "$ytjname" ]
+if [ "$Company_name_tobe_routed" == "$ytjname" ]; then
 	echo company name : $Company_name_tobe_routed
 	echo ytj name          : $ytjname
 
-then
   	echo "match correct name: TRUE"
-  	worknotes=`echo "TRUE: company names are correct, Task: $tCustomerName ,YTJ DB: $ytjname"`
+  	worknotes=`echo "OK: company names are correct, Task: $Company_name_tobe_routed ,YTJ DB: $ytjname"`
 	#logs
 	echo "checking time: $CTIME , STATUS INFO: $tTask $worknotes "  >> /home/elpp/rparobot/RR/logs/RRlogs
-	a=1;
+	b=1;
 else
 	echo "names are not exaclty the same: FALSE"
-	a=0;
-	worknotes=`echo "detected company names are not the same, company name from task: $tCustomerName , company name from ytj DB: $ytjname"`
+	b=0;
+	worknotes=`echo "CHECK: Company names are not the same, company name from task: $Company_name_tobe_routed , company name from ytj DB: $ytjname"`
 
 
-						echo "checking time: $CTIME , $tTask STATUS INFO: $worknotes "  >> /home/elpp/rparobot/RR/logs/RRlogs
+	echo "checking time: $CTIME , $tTask STATUS INFO: $worknotes "  >> /home/elpp/rparobot/RR/logs/RRlogs
 
 fi
 
@@ -313,11 +339,14 @@ if [ $EA_check_iban -eq 1 ]; then
     	iban_valid=`/home/elpp/rparobot/iban/iban-validate.sh $CompanyEA | grep -c "True"`
     if [ $iban_valid -eq 1 ]; then
         echo ibann confirmed
+	ea_check=`echo -e "OK: iban correctness confirmed"`
+	c=1;
     else
         echo "incorrect iban"
-        iban_worn=`echo -e "Iban is not confirmed, moved to manual handling"`
+        iban_worn=`echo -e "NOT OK: Iban not confirmed, moved to manual handling"`
         #worknotes
-	exit 1
+	ea_check=`echo -e "NOT OK: iban not confirmed"`
+	c=0;
     fi
 
     	#sometimes prefix is not added, 003712345678 -> TE003712345678. correct einvoice address?
@@ -328,90 +357,41 @@ elif [ $EA_check_tieto -eq 1 ]; then
     if [ $EA_check_tieto1 -ne 1 ]; then
     	echo EA check tieto1 : $EA_check_tieto1
             echo "adding prefix to ovt"
+	c=0;
+	ea_check=`echo -e "tieto prefix not correct"`
     else
     	echo ok tieto detected and prefix is ok
+	ea_check=`echo -e "OK: tieto prefix correct"`
+	c=1;
     fi
 
 elif [ $EA_check_ovt -eq 1 ]; then
 	echo EA check ovt : $EA_check_ovt
         echo Eaddress ovt confirmed
+	ea_check=`echo -e "OK: EA ovt confirmed"`
+	c=1;
 else
-    echo -e" eaddress not supported, moved to manual handling"
+    echo -e"NOT OK: eaddress not supported, moved to manual handling"
     #/home/elpp/rparobot/RR/adapters/routing_request_adapter.py $tTaskID --worknotes $ovtwarn
-    exit 1
+    ea_check=`echo -e "NOT OK: eaddress ovt not supported"`
+	c=0;
 fi
 
 }
-#EA_check_ovt=`grep -c '^0037[0-9]*$' <<<  "$CompanyEA"`
-
-#EA_check=`grep -c '^FI[0-9]*$' <<<  "$CompanyEA"`
-#                EAlenght=`awk -F '[0-9]' '{print NF-1}' <<< "$CompanyEA"`
-#                echo $EA_lenght
-#
-#                if [ $EA_lenght -ne 18 ] && [ $EA_check -eq 0 ]
-#                then
-#                        echo -e "ovt is extended or not correct, moved to manual handling"
-#                ovtwarn=`echo -e "Please check Ovt, moved to manual handling"`            
-#                  /home/elpp/rparobot/RR/adapters/routing_request_adapter.py $tTaskID --worknotes $ovtwarn
-#                                       exit 1
-#                else
-#                        echo "ovt correct : OK"
-#                fi
-
-#eaddress check
-
-
-#iaddress check <================================================================>
-
 
 #Accepted LMC checking
 
-
-
-
 LMCprecheck()
 {
+
+cat /home/elpp/rparobot/RR/LMC-list-accepted
+echo
 echo LMC checking
-
-echo -e "Aktia Pankki (HELSFIHH)"
-echo -e "Ålandsbanken (AABAFI22)"
-echo -e "Danske Bank (DABAFIHH)"
-echo -e "Handelsbanken (HANDFIHH)"
-echo -e "Nordea Bank (NDEAFIHH)"
-echo -e "Osuuspankki (OKOYFIHH)"
-echo -e "POP Pankki (POPFFI22)"
-echo -e "S-Pankki (SBANFIHH)"
-echo -e "Säästöpankkien Keskuspankki Suomi Oy (ITELFIHH)"
-echo -e "Apix Messaging Oy (003723327487)"
-echo -e "Basware (003705925424 / BAWCFI22 / BWEI)"
-echo -e "CGI (003703575029)"
-echo -e "Liaison (003708599126)"
-echo -e "Maventa (003721291126)"
-echo -e "Pagero (PAGERO / 003723609900 )"
-echo -e "Ropo Capital Oy (Enfo Zender Oy) (003714377140)"
-echo -e "Tieto (003701011385)"
-
-Aktia=`echo -e "Aktia Pankki (HELSFIHH)"`
-Aland=`echo -e "Ålandsbanken (AABAFI22)"`
-Danske=`echo -e "Danske Bank (DABAFIHH)"`
-Handel=`echo -e "Handelsbanken (HANDFIHH)"`
-Nordea=`echo -e "Nordea Bank (NDEAFIHH)"`
-Osuus=`echo -e "Osuuspankki (OKOYFIHH)"`
-POP=`echo -e "POP Pankki (POPFFI22)"`
-SPanki=`echo -e "S-Pankki (SBANFIHH)"`
-Saasto=`echo -e "Säästöpankkien Keskuspankki Suomi Oy (ITELFIHH)"`
-Apix=`echo -e "Apix Messaging Oy (003723327487)"`
-Basware=`echo -e "Basware (003705925424 / BAWCFI22 / BWEI)"`
-CGI=`echo -e "CGI (003703575029)"`
-Liais=`echo -e "Liaison (003708599126)"`
-Maven=`echo -e "Maventa (003721291126)"`
-Pagero=`echo -e "Pagero (PAGERO / 003723609900 )"`
-Ropo=`echo -e "Ropo Capital Oy (Enfo Zender Oy) (003714377140)"`
-Tieto=`echo -e "Tieto (003701011385)"`
-
+echo
 LMC=`cat LMC-list-accepted | grep -c "$Rec_short"`
-LMC1=`cat LMC-list-accepted | grep "$Rec_short"`
+LMC1=`cat LMC-list-accepted | grep "$Rec_short" | awk '{print $3}'`
 echo LMC : $LMC
+echo LMC : $LMC1
 
 
 #if [ "$Rec_operator" == "$Aktia" ] || [ "$Rec_operator" == "$Aland" ] || [ "$Rec_operator" == "$Danske" ] || [ "$Rec_operator" == "$Handel" ] || [ "$Rec_operator" == "$Nordea" ] || [ "$Rec_operator" == "$Osuus" ] || [ "$Rec_operator" == "$POP" ] || [ "$Rec_operator" == "$SPanki"] || [ "$Rec_operator" == "$Saasto" ] || [ "$Rec_operator" == "$Apix" ] || [ "$Rec_operator" == "$Basware" ] || [ "$Rec_operator" == "$CGI" ] || [ "$Rec_operator" == "$Liais" ] || [ "$Rec_operator" == "$Maven" ] || [ "$Rec_operator" == "$Pagero" ] || [ "$Rec_operator" == "$Ropo" ] || [ "$Rec_operator" == "$Tieto" ]
@@ -420,10 +400,14 @@ if [ $LMC -eq 1 ]; then
 
 	echo LMCs approved
 	echo
+	d=1;
 	echo Receiving operator : $Rec_operator
 	echo LMC name           : $LMC1
+	LMC_wn=`echo -e "OK: LMC in task aproved"`
 else
 	echo -e "LMCs not approved, moved to manual handling"
+	d=0;
+	LMC_wn=`echo -e "NOT OK: LMC in task not aproved or more information provided"`
 		echo
 	        echo Receiving operator : $Rec_operator
 		echo LMC name           : $LMC1
@@ -432,9 +416,56 @@ else
 		        echo
 
 
-	LMCworknotes=`echo -e "LMCs not approved, moved to manual handling"`
+	#LMCworknotes=`echo -e "LMCs not approved, moved to manual handling"`
 fi
 }
+
+
+checkpoint1()
+{
+echo "a : $a  $ovtwarn"
+echo "b : $b  $worknotes"
+echo "c : $c  $ea_check"
+echo "d : $d  $LMC_wn"
+
+
+
+if [ "$a" -eq "1" ] && [ "$b" -eq "1" ] && [ "$c" -eq "1" ] && [ "$d" -eq "1" ]; then
+		echo
+                echo "first checkpoint before setting iaddress"
+	csinfo="$(cat <<-EOF
+	CONFIRMED by robot, please check following information \n\r $ovtwarn \n\r $worknotes \n\r $ea_check \n\r $LMC_wn
+	EOF
+                )"
+                echo "$csinfo"
+		echo -e " ready for next stage"
+		echo
+                        echo "$csinfo"
+
+else
+
+	csinfo="$(cat <<-EOF
+	Moved to manual handling, please check following information \n\r $ovtwarn \n\r $worknotes \n\r $ea_check \n\r $LMC_wn \n\r iaddress has been skiped
+EOF
+                )"
+                echo "$csinfo"
+                echo " Need to be checked by customer service "
+                echo "$csinfo"
+                echo "checking time: $CTIME , STATUS INFO: CSCHECK: $csinfo" >> /home/elpp/rparobot/RR/RR_logs
+                /home/elpp/rparobot/RR/adapters/routing_request_adapter.py $tTaskID --worknotes "${csinfo}"
+                /home/elpp/slomaba1/HAL/change_priority3.py $tTaskID
+
+		if [ $robot -eq 1 ]; then
+                     continue 1
+                else
+                     exit 1
+                fi
+
+fi
+
+		
+}
+
 
 
 #iaddress part
@@ -450,8 +481,8 @@ sanityOrg=`eivc-org-info $tOvt | grep "Org id:" | wc -l`
 if [ $sanityOrg -le 1 ]
 then
         echo -e "no duplicated organizations, OK"
-	b=1;
-	worknotes1=`echo "OK : no duplicated organizations"`
+	e=1;
+	worknotes1=`echo -e "OK : no duplicated organizations"`
 
 	        #logs
 		        echo "checking time: $CTIME , STATUS INFO: $worknotes1 "  >> /home/elpp/rparobot/RR/logs/RRlogs
@@ -460,8 +491,8 @@ else
 	echo "false"
 	        echo -e " $sanityOrg organizations found in iaddress, $tTask $tOvt plese remove inccorrect entries" >> /home/elpp/rparobot/RR/logs/RRlogs
 		# this will go to manual hendling - info in worknotes with status moderate
-		b=0;
-		worknotes1=`echo "UPSSS: duplicated organization, please check iaddress"`
+		e=0;
+		worknotes1=`echo -e "UPSSS: duplicated organization, please check iaddress"`
 
 fi
 #checing for edira mess
@@ -470,27 +501,13 @@ fi
 					then
 					        echo -e "Edira mess in iaddress"
 						worknotes2=`echo "UPSS: 2 edira records on the same site, please check iaddress"`
-						c=0;
+						f=0;
 						else
 						        echo -e "OK: correct eddira, sepparate sites"
-							c=1;
+							f=1;
 							worknotes2=`echo "OK: correct eddira, sepparate sites"`
 							fi
 }
-
-
-
-
-set_routings()
-{
-
-
-if [sanityOrg -eq 0]; then
-    echo creating organization
-    OrgId=`eivc-org-create --name "${Company_name_tobe_routed}" -t $tTask | awk '{print $5}'`
-else
-    OrgId=`eivc-org-info 003709761455 | grep "Org id:" | awk '{print $3}'`
-fi
 
 add_routing()
 {
@@ -502,94 +519,188 @@ valid_from()
 {
         echo "standard routing validation from $tDate"
 		
-		newchanel=`eivc-site-info $tOvt | grep $CompanyEA | awk '{print $1}'`
-		
-		eivc-site-addr-modify --id $newchanel --validfrom $tDate --feeniks-export Y -t $tTask
+		newchanel=`eivc-site-info $tOvt | grep $CompanyEA | grep " E " | awk '{print $1}'`
+		echo
+		echo -e " eivc-site-info $tOvt | grep $CompanyEA | grep " E " | awk '{print $1}'"
+		eivc-site-addr-modify --id $newchanel --validfrom $tDate -t $tTask
+		echo
 }
+
+
+valid_to()
+{
+echo -e "eivc-site-addr-modify --id $oldchanel --validto $tDate -t $tTask"
+eivc-site-addr-modify --id $oldchanel --validto $tDate -t $tTask
+echo
+}
+
+set_routings()
+{
+
+sanityOrg=`eivc-org-info $tOvt | grep "Org id:" | wc -l`
+	if [ $sanityOrg -eq 0 ]; then
+    		echo creating organization
+        	OrgId=`eivc-org-create --name "${Company_name_tobe_routed}" -t $tTask | awk '{print $5}'`
+		echo -e " New ORG id : $OrgId"
+	else
+	    OrgId=`eivc-org-info $tOvt | grep "Org id:" | awk '{print $3}'`
+	    echo -e " ORG id : $OrgId"
+	fi
 
 #checking for active routings and setting up
-site_check=`eivc-site-info $tOvt | grep -c " E "`
-if [site_check -eq 0]; then
-    echo clean site ready to add LMC
-    fi
-        if [site_check -eq 1]; then
+site_check=`eivc-site-info $tOvt | grep " E " | wc -l`
+
+if [ $site_check -eq 1 ]; then
             IA_LMC=`eivc-site-info $tOvt | grep "prod" | grep " E " | awk '{print $3}'`
             check_accepted_LMC=`cat LMC-list-accepted | grep -c $IA_LMC`
-            if [ $check_accepted_LMC -eq 0 ]; then
+            
+	    if [ $check_accepted_LMC -eq 0 ]; then
                 echo "LMC not supported, moved to manual handling"
-                LMC_IA_WARN=`echo "LMC not accepted, moved to manual handling /n/r $check_accepted_LMC"`
-                #worknotes
-                exit 1
+                check_route_wn=`echo "CHECK: LMC from iaddress not accepted or not in robot scope, moved to manual handling, $check_accepted_LMC"`
+		g=0;
             else
-                echo ready to set validation
-                oldchanel=`eivc-site-info $tOvt | grep $IA_LMC | awk '{print $1}'`
-		
-		        eivc-site-addr-modify --id $oldchanel --validto $tDate -t $tTask
-                add_routing
-                valid_from
-            fi
-        else
-        echo -e "some validation routing awaiting, moved to manual handling"
+		clonecheck=`eivc-site-info $tOvt | grep " E " | grep $LMC1 | wc -l`
+	    	if [ $clonecheck -eq 0 ]; then
 
-        fi
+                	echo ready to set validation
+			g=1;
+                	oldchanel=`eivc-site-info $tOvt | grep $IA_LMC | awk '{print $1}'`
+		
+			eivc-site-addr-modify --id $oldchanel --validto $tDate -t $tTask
+                	add_routing
+                	valid_from
+			check_route_wn=`echo -e "OK: New routing has been added"`
+
+
+		else
+			echo open routing for ordered LMC exists
+			check_route_wn=`echo -e "OK: Open routing exists, no action required"`
+			g=1;
+		fi
+
+            fi
+
+elif [ $site_check -eq 0 ]; then
+
+	echo clean site ready to add routing
+        add_routing
+        valid_from
+	g=1;
+	check_route_wn=`echo -e "OK: New routing has been added"`
+
+else
+	echo some routing awaiting
+	check_route_wn=`echo -e "CHECK: two unsupporting active routings, moved to manual handling"`
+	g=0;
+
+fi
 
 
 }
 
-
-
-
+#last checkpoint part
 
 iaddrsum()
 {
-	iaddrcolR=`eivc-site-info $tOvt | grep " E " | grep "$CompanyEA" | wc -l`
+	iaddrcolR=`eivc-site-info $tOvt | grep " E " | grep -v "(" | grep "$CompanyEA" | wc -l`
 
 	echo "sum iaddr: record $iaddrcolR"
 
 
 	if [ $iaddrcolR -eq 1 ]
 	then
-        	echo correct routing in iaddress
 
+        echo -e "######################### summary ##############################"
+        echo -e "           correct routing in iaddress                          "
+        echo "PMTASK:                                $tTask"
+        echo "OVT Code:                              $tOvt"
+        urlIA=`echo Iaddres link : $(eivc-site-info $tOvt | grep "Site id:" | awk '{print $3}' | gxargs -i echo "https://iaddress.itella.net/eivc-ui/hd/site-edit.htm?siteId={}")`
+        echo "$urlIA "
+	h=1;
+	lastwarn_wn=`echo -e "OK: final routing checked, $urlIA"`
 	else
 	        	echo " WARNING: please check iaddress, routing not found"
-			        lastwarn=`echo"moved to manual handling, please check iaddress"`
+	urlIA=`echo Iaddres link : $(eivc-site-info $tOvt | grep "Site id:" | awk '{print $3}' | gxargs -i echo "https://iaddress.itella.net/eivc-ui/hd/site-edit.htm?siteId={}")`
+        echo "$urlIA "
+				h=0;
+			        lastwarn_wn=`echo -e "CHECK: moved to manual handling, $urlIA"`
 	fi
 
 }
 
-
-lastnotes()
+closechecks()
 {
-	echo
-	echo -e "######################### summary ##############################"
-	echo
-	echo "PMTASK:                                $tTask"
-	echo "OVT Code:                              $tOvt"
-	echo "customer name from department:         ${tCustomerName}"
-	urlIA=`echo Message sending : $(eivc-site-info $tOvt | grep "Site id:" | awk '{print $3}' | gxargs -i echo "https://iaddress.itella.net/eivc-ui/hd/site-edit.htm?siteId={}")`
-	echo "$urlIA "
-	echo
+echo "a : $a  $ovtwarn"
+echo "b : $b  $worknotes"
+echo "c : $c  $ea_check"
+echo "d : $d  $LMC_wn"
+echo "e : $e  $worknotes1"
+echo "f : $f  $worknotes2"
+echo "g : $g  $check_route_wn"
+
+
+
+		if [ "$a" -eq "1" ] && [ "$b" -eq "1" ] && [ "$c" -eq "1" ] && [ "$d" -eq "1" ]&& [ "$e" -eq "1" ]&& [ "$f" -eq "1" ]&& [ "$g" -eq "1" ] && [ "$h" -eq "1" ]
+			then
+			echo "ready to close"
+csinfo="$(cat <<-EOF
+CONFIRMED by robot, please check following information \n\r $ovtwarn \n\r $worknotes \n\r $ea_check \n\r $LMC_wn \n\r $worknotes1 \n\r $worknotes2 \n\r $check_route_wn \n\r $lastwarn_wn
+EOF
+                )"
+                echo "$csinfo"
+
+			#csinfo=`echo -e "CONFIRMED by robot, please check following information \n\r | $ovtwarn \n\r $worknotes \n\r $ea_check \n\r $LMC_wn \n\r $worknotes1 \n\r $worknotes2 \n\r $check_route_wn"`
+			echo "$csinfo"
+				/home/elpp/rparobot/RR/adapters/routing_request_adapter.py $tTaskID --worknotes "${csinfo}"
+				#/home/elpp/slomaba1/HAL/worknotes_prod.py $tTaskID "${csinfo}"	
+				/home/elpp/slomaba1/HAL/change_priority2.py $tTaskID
+				#assigntoHAL
+
+				echo "checking time: $CTIME , FINAGO STATUS INFO: CORRECT closed by HAL: $csinfo"  >> /home/elpp/rparobot/RR/RR_logs
+				#closedcomplete
+		else
+
+csinfo="$(cat <<-EOF
+moved to manual handling, please check following information \n\r $ovtwarn \n\r $worknotes \n\r $ea_check \n\r $LMC_wn \n\r $worknotes1 \n\r $worknotes2 \n\r $check_route_wn \n\r $lastwarn_wn
+EOF
+                )"
+                echo "$csinfo"
+						echo " Need to be checked by customer service "
+						#csinfo=`echo -e "moved to manual handling, please check following information \n\r $ovtwarn \n\r $worknotes \n\r $ea_check \n\r $LMC_wn \n\r $worknotes1 \n\r $worknotes2 \n\r $check_route_wn"`
+						echo "$csinfo"
+						echo "checking time: $CTIME , STATUS INFO: CSCHECK: $csinfo" >> /home/elpp/rparobot/RR/RR_logs
+						#/home/elpp/slomaba1/HAL/worknotes_prod.py $tTaskID "${csinfo}"
+						/home/elpp/rparobot/RR/adapters/routing_request_adapter.py $tTaskID --worknotes "${csinfo}"
+						/home/elpp/slomaba1/HAL/change_priority3.py $tTaskID
+
+		fi
 
 }
+
 
 requirements()
 {
 echo setup documentation will be here
+
+
 }
 
 robotitems()
 {
-	echo task number : $tTask
-	#check_ps
-	snc1
-	checkboxtal
-	leukucheck
-	checking_console
-	ovtok
-	agrok
-	sending_bruteforce
-	lastnotes
+robot=1;
+	snc
+        checkbox
+        ovt_check
+        ytj_check
+        namecompare
+        eadress_check
+        LMCprecheck
+	checkpoint1
+        checkin_iaddress
+        set_routings
+        iaddrsum
+        closechecks
+
 
 }
 
@@ -598,11 +709,11 @@ robot()
 {
 
 	# collecting routing requests task tickets
-	/home/elpp/rparobot/RR/adapters/routing_request_adapter.py something --get_tasklist > tasklist.tmp
+	/home/elpp/rparobot/RR/adapters/routing_request_adapter.py something --get_tasklist > /home/elpp/rparobot/RR/tasklist.tmp
 
 
 	echo
-        RR_tasklist=`cat tasklist.tmp | wc -l`
+        RR_tasklist=`cat /home/elpp/rparobot/RR/tasklist.tmp | wc -l`
         #echo " number of assigned RR tasks : $RR_tasklist "
 
 
@@ -631,10 +742,10 @@ robot()
 	echo
 	echo "# $RR_tasklist logs from $logdate made by robot #" >> /home/elpp/rparobot/RR/logs/RRlogs
 
-	cat tasklist.tmp | awk '{print $2}' | while read tTask; do robotitems; done
+	cat /home/elpp/rparobot/RR/tasklist.tmp | awk '{print $2}' | while read tTask; do robotitems; done
 
-	echo "======== The amount of talenom orders processed by the robot : $talenom_tasklist  ========"
-	echo "# batch end from $logdate : $talenom_tasklist orders processed by robot  #" >> /home/elpp/rparobot/RR/logs/RRlogs
+	echo "======== The amount of routing requests orders processed by the robot : $RR_tasklist  ========"
+	echo "# batch end from $logdate : $RR_tasklist orders processed by robot  #" >> /home/elpp/rparobot/RR/logs/RRlogs
 
 }
 
@@ -659,6 +770,7 @@ do
                         exit
                         ;;
                 --single-order | -s)
+			robot=0;
                         snc
                        	checkbox
                        	ovt_check
@@ -666,6 +778,12 @@ do
                        	namecompare
                        	eadress_check
 		       	LMCprecheck
+			checkpoint1
+			checkin_iaddress
+			set_routings
+			iaddrsum
+			closechecks
+			
 
                        	exit
                         ;;
