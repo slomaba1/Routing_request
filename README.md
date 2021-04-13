@@ -5,17 +5,21 @@ utility tools for snc RPA routing requests
 
 Version 0.1.0
 
-## Usage
+## Usage and requirements
+
 
 Tools needs credentials to work on remote repository, make sure you have those either in your invoking script or in environment variables:
 ```bash
-export RPA_SNC_USERNAME="HAL9000"
-export RPA_SNC_PASSWORD="OpenTheDoorHAL"
+require config.py file under adapters/ folder
+
 
 ```
 ### Config
 
-config.py - defines host, user and passwords for snc interactions.
+adapters/config.py - defines host, user and passwords for snc interactions.
+example credentials
+US = 'RPA_HAL9000'
+PASS = '====Open the door Hall ==='
 
 ### Set accounts definition in the department section
 ```bash
@@ -75,3 +79,6 @@ more arguments:
 ```
 
 LMC-list-accepted - defines accepted LMC
+
+
+
