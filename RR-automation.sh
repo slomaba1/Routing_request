@@ -323,13 +323,17 @@ fi
 }
 
 #electronic addres and iban check
+
 eadress_check()
 {
+
 echo company EA : $CompanyEA
 EA_check_iban=`grep -c '^FI[0-9]*$' <<< $CompanyEA`
 echo iban check  : $EA_check_iban
-EA_check_tieto=`grep -c '003712345678' <<< $CompanyEA`
-echo tieto check : $EA_check_tieto
+
+check_tieto=`grep -c 'Tieto' <<< $Rec_operator`
+echo -e "tieto check: detected $Rec_operator $CompanyEA"
+
 EA_check_ovt=`grep -c '^0037[0-9]*$' <<< $CompanyEA`
 echo ovt check   : $EA_check_ovt
 
@@ -350,29 +354,43 @@ if [ $EA_check_iban -eq 1 ]; then
     fi
 
     	#sometimes prefix is not added, 003712345678 -> TE003712345678. correct einvoice address?
-elif [ $EA_check_tieto -eq 1 ]; then
-	echo EA check tieto : $EA_check_tieto
-        echo Tieto detected
-        EA_check_tieto1=`grep -c 'TE' <<<  "$CompanyEA"`
-    if [ $EA_check_tieto1 -ne 1 ]; then
-    	echo EA check tieto1 : $EA_check_tieto1
-            echo "adding prefix to ovt"
-	c=0;
-	ea_check=`echo -e "tieto prefix not correct"`
-    else
-    	echo ok tieto detected and prefix is ok
-	ea_check=`echo -e "OK: tieto prefix correct"`
-	c=1;
-    fi
+elif [ $check_tieto -eq 1 ]; then
+	
+	echo -e "tieto detected: checking EA for tieto"
+	EA_sanity1=`grep -c '^TE0037[0-9]*$' <<< $CompanyEA`
+	EA_sanity2=`grep -c '^0037[0-9]*$' <<< $CompanyEA`
+        #EA_sanity3=`awk -F '[0-9]' '{print NF-1}' <<< $CompanyEA`
+	#EA_sanity4=`awk -F '[0-9]' '{print NF-1}' <<< $CompanyEA`
 
+		if [ $EA_sanity1 -eq 1 ] || [ $EA_sanity2 -eq 1 ]
+		then
+			
+		  echo 
+		  EA_check_tieto=`grep -c 'TE' <<< $CompanyEA`
+        
+		    if [ $EA_check_tieto -eq 1];then
+                		echo ok prefix on the place
+        	    else
+			echo adding prefix
+        		CompanyEA="TE${ovt}"
+        		echo -e "Company EA for Tieto fixed : $CompanyEA"
+			ea_check=`echo -e "OK: wrong prefix in EA address,has been fixed $CompanyEA"`
+			c=1;
+		    fi
+
+		else
+			echo -e "Please check Electronic address for tieto : $CompanyEA"
+			ea_check=`echo -e "Please check Electronic address for tieto : $CompanyEA"`
+			c=0;
+		fi
+	
 elif [ $EA_check_ovt -eq 1 ]; then
 	echo EA check ovt : $EA_check_ovt
         echo Eaddress ovt confirmed
 	ea_check=`echo -e "OK: EA ovt confirmed"`
 	c=1;
 else
-    echo -e"NOT OK: eaddress not supported, moved to manual handling"
-    #/home/elpp/rparobot/RR/adapters/routing_request_adapter.py $tTaskID --worknotes $ovtwarn
+    echo -e "NOT OK: eaddress not supported, moved to manual handling"
     ea_check=`echo -e "NOT OK: eaddress ovt not supported"`
 	c=0;
 fi
@@ -451,7 +469,7 @@ EOF
                 echo "$csinfo"
                 echo " Need to be checked by customer service "
                 echo "$csinfo"
-                echo "checking time: $CTIME , STATUS INFO: CSCHECK: $csinfo" >> /home/elpp/rparobot/RR/RR_logs
+                echo "checking time: $CTIME , STATUS INFO: CSCHECK: $csinfo" >> /home/elpp/rparobot/RR/logs/RRlogs
                 /home/elpp/rparobot/RR/adapters/routing_request_adapter.py $tTaskID --worknotes "${csinfo}"
                 /home/elpp/slomaba1/HAL/change_priority3.py $tTaskID
 
@@ -559,7 +577,8 @@ if [ $site_check -eq 1 ]; then
                 check_route_wn=`echo "CHECK: LMC from iaddress not accepted or not in robot scope, moved to manual handling, $check_accepted_LMC"`
 		g=0;
             else
-		clonecheck=`eivc-site-info $tOvt | grep " E " | grep $LMC1 | wc -l`
+		clonecheck=`eivc-site-info $tOvt | grep -v "(" | grep " E " | grep $LMC1 | grep $CompanyEA | wc -l`
+		echo -e " eivc-site-info $tOvt | grep -v '(' | grep ' E ' | grep $LMC1 | grep $CompanyEA | wc -l"
 	    	if [ $clonecheck -eq 0 ]; then
 
                 	echo ready to set validation
@@ -656,7 +675,7 @@ EOF
 				/home/elpp/slomaba1/HAL/change_priority2.py $tTaskID
 				#assigntoHAL
 
-				echo "checking time: $CTIME , FINAGO STATUS INFO: CORRECT closed by HAL: $csinfo"  >> /home/elpp/rparobot/RR/RR_logs
+				echo "checking time: $CTIME , STATUS INFO: CORRECT: $tTask $tOvt ${tCustomerName} $urlIA "  >> /home/elpp/rparobot/RR/logs/RRlogs
 				#closedcomplete
 		else
 
@@ -668,7 +687,7 @@ EOF
 						echo " Need to be checked by customer service "
 						#csinfo=`echo -e "moved to manual handling, please check following information \n\r $ovtwarn \n\r $worknotes \n\r $ea_check \n\r $LMC_wn \n\r $worknotes1 \n\r $worknotes2 \n\r $check_route_wn"`
 						echo "$csinfo"
-						echo "checking time: $CTIME , STATUS INFO: CSCHECK: $csinfo" >> /home/elpp/rparobot/RR/RR_logs
+						echo "$CTIME , STATUS INFO: CSCHECK: $tTask $tOvt ${tCustomerName} $urlIA " >> /home/elpp/rparobot/RR/logs/RRlogs
 						#/home/elpp/slomaba1/HAL/worknotes_prod.py $tTaskID "${csinfo}"
 						/home/elpp/rparobot/RR/adapters/routing_request_adapter.py $tTaskID --worknotes "${csinfo}"
 						/home/elpp/slomaba1/HAL/change_priority3.py $tTaskID
