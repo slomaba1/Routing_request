@@ -583,7 +583,7 @@ if [ $site_check -eq 1 ]; then
 
                 	echo ready to set validation
 			g=1;
-                	oldchanel=`eivc-site-info $tOvt | grep $IA_LMC | awk '{print $1}'`
+                	oldchanel=`eivc-site-info $tOvt | grep $IA_LMC | grep " E " | awk '{print $1}'`
 		
 			eivc-site-addr-modify --id $oldchanel --validto $tDate -t $tTask
                 	add_routing
