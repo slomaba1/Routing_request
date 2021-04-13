@@ -1,0 +1,28 @@
+
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+$$$$_________________________Service now adapter 1.0.1_________________________$$$$
+$$$$        Dedicated for all tasks and Iaddress routing request service       $$$$
+$$$$                  more information: bartosz.sloma@posti.com                $$$$
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+____________________________TASK DETAILS_______________________________________
+
+TASK number            : PMTASK0561299
+Parent                 : {'value': '767753d01be7ec142f24c185464bcb83', 'link': 'https://meseflow.service-now.com/api/now/table/task/767753d01be7ec142f24c185464bcb83'}
+TASK subject           : Uusi iAddress B2B verkkolaskureitityspyyntö / Esmero Oy / 003728740924
+TASK status            : 1
+TASK ID                : 737753d01be7ec142f24c185464bcbda
+assignment group       : {'value': 'e6407b040f3a0700f3ecf68ce1050edc', 'link': 'https://meseflow.service-now.com/api/now/table/sys_user_group/e6407b040f3a0700f3ecf68ce1050edc'}
+TASK status            : 1
+737753d01be7ec142f24c185464bcbda
+
+ ________________________Information taken from variables form___________________________
+
+Company name variables field         : LähiTapiola Palvelut Oy
+CN to be routed                      : Esmero Oy
+Type                                 : eDIRA (OVT)
+To be routed Receiving ID            : 003728740924
+company electronic address           : 003728740924
+Receiving operator                   : Apix Messaging Oy (003723327487)
+Activate routing                     : 
+More information field               : 
