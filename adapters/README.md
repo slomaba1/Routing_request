@@ -1,7 +1,28 @@
-Config
-adapters/config.py - defines host, user and passwords for snc interactions. example credentials US = 'RPA_HAL9000' PASS = '====Open the door Hall ==='
+snc_adapter for routingrequests
+===========
 
-Set accounts definition in the department section
+utility tools for snc RPA routing requests
+
+Version 0.1.0
+
+## Usage and requirements
+
+
+Tools needs credentials to work on remote repository, make sure you have those either in your invoking script or in environment variables:
+```bash
+require config.py file under adapters/ folder
+
+
+```
+### Config
+
+adapters/config.py - defines host, user and passwords for snc interactions.
+example credentials
+US = 'RPA_HAL9000'
+PASS = '====Open the door Hall ==='
+
+### Set accounts definition in the department section
+```bash
 usage: routing_request_adapter.py [-h]
                                   [--change_status {open,work_in_progress,closed_complete}]
                                   [--worknotes WORKNOTES] [--read_details]
@@ -30,3 +51,6 @@ optional arguments:
                         provide your sys_id and chose option
   --read_ritmdetails, -q
                         provide task number to get details
+
+
+```
